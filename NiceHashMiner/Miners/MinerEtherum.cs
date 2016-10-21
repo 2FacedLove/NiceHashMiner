@@ -41,7 +41,7 @@ namespace NiceHashMiner.Miners {
         }
 
         protected abstract string GetStartCommandStringPart(Algorithm miningAlgorithm, string url, string username);
-        protected abstract string GetBenchmarkCommandStringPart(ComputeDevice benchmarkDevice, Algorithm algorithm);
+        protected abstract string GetBenchmarkCommandStringPart(Algorithm algorithm);
 
         protected override string GetDevicesCommandString() {
             string deviceStringCommand = " ";
@@ -75,7 +75,15 @@ namespace NiceHashMiner.Miners {
             return "singlekeep";
         }
 
-        public override void Start(Algorithm miningAlgorithm, string url, string username) {
+        public void Start(Algorithm miningAlgorithm, string url, string username, List<MinerEtherum> usedMiners) {
+            foreach (var ethminer in usedMiners) {
+                if (ethminer.MINER_ID != MINER_ID && (ethminer.IsRunning || ethminer.IsPaused)) {
+                    Helpers.ConsolePrint(MinerTAG(), String.Format("Will end {0} {1}", ethminer.MinerTAG(), ethminer.ProcessTag()));
+                    ethminer.End();
+                    System.Threading.Thread.Sleep(ConfigManager.Instance.GeneralConfig.MinerRestartDelayMS);
+                }
+            }
+
             IsPaused = false;
             if (ProcessHandle == null) {
                 CurrentMiningAlgorithm = miningAlgorithm;
@@ -93,8 +101,8 @@ namespace NiceHashMiner.Miners {
             }
         }
 
-        protected override string BenchmarkCreateCommandLine(ComputeDevice benchmarkDevice, Algorithm algorithm, int time) {
-            string CommandLine = GetBenchmarkCommandStringPart(benchmarkDevice, algorithm) + GetDevicesCommandString();
+        protected override string BenchmarkCreateCommandLine(Algorithm algorithm, int time) {
+            string CommandLine = GetBenchmarkCommandStringPart(algorithm) + GetDevicesCommandString();
             Ethereum.GetCurrentBlock(CurrentBlockString);
             CommandLine += " --benchmark " + Ethereum.CurrentBlockNum;
 

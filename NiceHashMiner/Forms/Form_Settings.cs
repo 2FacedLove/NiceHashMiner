@@ -40,6 +40,7 @@ namespace NiceHashMiner.Forms {
 
         public Form_Settings() {
             InitializeComponent();
+            this.Icon = NiceHashMiner.Properties.Resources.logo;
 
             //ret = 1; // default
             IsChange = false;
@@ -64,6 +65,13 @@ namespace NiceHashMiner.Forms {
             algorithmsListView1.ComunicationInterface = algorithmSettingsControl1;
             //algorithmsListView1.RemoveRatioRates();
 
+
+            // set first device selected {
+            if (ComputeDevice.AllAvaliableDevices.Count > 0) {
+                _selectedComputeDevice = ComputeDevice.AllAvaliableDevices[0];
+                algorithmsListView1.SetAlgorithms(_selectedComputeDevice, _selectedComputeDevice.ComputeDeviceEnabledOption.IsEnabled);
+                groupBoxAlgorithmSettings.Text = String.Format(International.GetText("FormSettings_AlgorithmsSettings"), _selectedComputeDevice.Name);
+            }
 
             // At the very end set to true
             _isInitFinished = true;
@@ -172,6 +180,11 @@ namespace NiceHashMiner.Forms {
             
             toolTip1.SetToolTip(this.checkBox_NVIDIAP0State, International.GetText("Form_Settings_ToolTip_checkBox_NVIDIAP0State"));
             toolTip1.SetToolTip(this.pictureBox_NVIDIAP0State, International.GetText("Form_Settings_ToolTip_checkBox_NVIDIAP0State"));
+
+
+            toolTip1.SetToolTip(this.checkBox_AutoStartMining, International.GetText("Form_Settings_ToolTip_checkBox_AutoStartMining"));
+            toolTip1.SetToolTip(this.pictureBox_AutoStartMining, International.GetText("Form_Settings_ToolTip_checkBox_AutoStartMining"));
+
             
             toolTip1.SetToolTip(this.textBox_ethminerDefaultBlockHeight, International.GetText("Form_Settings_ToolTip_ethminerDefaultBlockHeight"));
             toolTip1.SetToolTip(this.label_ethminerDefaultBlockHeight, International.GetText("Form_Settings_ToolTip_ethminerDefaultBlockHeight"));
@@ -185,6 +198,18 @@ namespace NiceHashMiner.Forms {
             toolTip1.SetToolTip(comboBox_CPU0_ForceCPUExtension, International.GetText("Form_Settings_ToolTip_CPU_ForceCPUExtension"));
             toolTip1.SetToolTip(label_CPU0_ForceCPUExtension, International.GetText("Form_Settings_ToolTip_CPU_ForceCPUExtension"));
             toolTip1.SetToolTip(pictureBox_CPU0_ForceCPUExtension, International.GetText("Form_Settings_ToolTip_CPU_ForceCPUExtension"));
+
+            // amd disable temp control
+            toolTip1.SetToolTip(checkBox_AMD_DisableAMDTempControl, International.GetText("Form_Settings_ToolTip_DisableAMDTempControl"));
+            toolTip1.SetToolTip(pictureBox_AMD_DisableAMDTempControl, International.GetText("Form_Settings_ToolTip_DisableAMDTempControl"));
+
+            // disable default optimizations
+            toolTip1.SetToolTip(checkBox_DisableDefaultOptimizations, International.GetText("Form_Settings_ToolTip_DisableDefaultOptimizations"));
+            toolTip1.SetToolTip(pictureBox_DisableDefaultOptimizations, International.GetText("Form_Settings_ToolTip_DisableDefaultOptimizations"));
+
+            // internet connection mining check
+            toolTip1.SetToolTip(checkBox_ContinueMiningIfNoInternetAccess, International.GetText("Form_Settings_ToolTip_ContinueMiningIfNoInternetAccess"));
+            toolTip1.SetToolTip(pictureBox_ContinueMiningIfNoInternetAccess, International.GetText("Form_Settings_ToolTip_ContinueMiningIfNoInternetAccess"));
 
             this.Text = International.GetText("Form_Settings_Title");
 
@@ -203,6 +228,7 @@ namespace NiceHashMiner.Forms {
 
         private void InitializeGeneralTabTranslations() {
             checkBox_DebugConsole.Text = International.GetText("Form_Settings_General_DebugConsole");
+            checkBox_AutoStartMining.Text = International.GetText("Form_Settings_General_AutoStartMining");
             checkBox_HideMiningWindows.Text = International.GetText("Form_Settings_General_HideMiningWindows");
             checkBox_MinimizeToTray.Text = International.GetText("Form_Settings_General_MinimizeToTray");
             checkBox_DisableDetectionNVidia6X.Text = String.Format(International.GetText("Form_Settings_General_DisableDetection"), "NVIDIA6.x");
@@ -217,6 +243,7 @@ namespace NiceHashMiner.Forms {
             //checkBox_UseNewSettingsPage.Text = International.GetText("Form_Settings_General_UseNewSettingsPage");
             checkBox_NVIDIAP0State.Text = International.GetText("Form_Settings_General_NVIDIAP0State");
             checkBox_LogToFile.Text = International.GetText("Form_Settings_General_LogToFile");
+            checkBox_AMD_DisableAMDTempControl.Text = International.GetText("Form_Settings_General_DisableAMDTempControl");
 
             label_Language.Text = International.GetText("Form_Settings_General_Language") + ":";
             label_BitcoinAddress.Text = International.GetText("BitcoinAddress") + ":";
@@ -270,6 +297,9 @@ namespace NiceHashMiner.Forms {
 
             buttonAllProfit.Text = International.GetText("FormSettings_Tab_Devices_Algorithms_Check_ALLProfitability");
             buttonSelectedProfit.Text = International.GetText("FormSettings_Tab_Devices_Algorithms_Check_SingleProfitability");
+
+            checkBox_DisableDefaultOptimizations.Text = International.GetText("Form_Settings_Text_DisableDefaultOptimizations");
+            checkBox_ContinueMiningIfNoInternetAccess.Text = International.GetText("Form_Settings_Text_ContinueMiningIfNoInternetAccess");
         }
 
         private void InitializeGeneralTabCallbacks() {
@@ -289,6 +319,7 @@ namespace NiceHashMiner.Forms {
                 this.checkBox_StartMiningWhenIdle.CheckedChanged += new System.EventHandler(this.GeneralCheckBoxes_CheckedChanged);
                 this.checkBox_NVIDIAP0State.CheckedChanged += new System.EventHandler(this.GeneralCheckBoxes_CheckedChanged);
                 this.checkBox_LogToFile.CheckedChanged += new System.EventHandler(this.GeneralCheckBoxes_CheckedChanged);
+                this.checkBox_AutoStartMining.CheckedChanged += new System.EventHandler(this.GeneralCheckBoxes_CheckedChanged);
             }
             // Add EventHandler for all the general tab's textboxes
             {
@@ -341,6 +372,7 @@ namespace NiceHashMiner.Forms {
             // Checkboxes set checked value
             {
                 checkBox_DebugConsole.Checked = ConfigManager.Instance.GeneralConfig.DebugConsole;
+                checkBox_AutoStartMining.Checked = ConfigManager.Instance.GeneralConfig.AutoStartMining;
                 checkBox_HideMiningWindows.Checked = ConfigManager.Instance.GeneralConfig.HideMiningWindows;
                 checkBox_MinimizeToTray.Checked = ConfigManager.Instance.GeneralConfig.MinimizeToTray;
                 checkBox_DisableDetectionNVidia6X.Checked = ConfigManager.Instance.GeneralConfig.DeviceDetection.DisableDetectionNVidia6X;
@@ -354,6 +386,9 @@ namespace NiceHashMiner.Forms {
                 checkBox_DisableWindowsErrorReporting.Checked = ConfigManager.Instance.GeneralConfig.DisableWindowsErrorReporting;
                 checkBox_NVIDIAP0State.Checked = ConfigManager.Instance.GeneralConfig.NVIDIAP0State;
                 checkBox_LogToFile.Checked = ConfigManager.Instance.GeneralConfig.LogToFile;
+                checkBox_AMD_DisableAMDTempControl.Checked = ConfigManager.Instance.GeneralConfig.DisableAMDTempControl;
+                checkBox_DisableDefaultOptimizations.Checked = ConfigManager.Instance.GeneralConfig.DisableDefaultOptimizations;
+                checkBox_ContinueMiningIfNoInternetAccess.Checked = ConfigManager.Instance.GeneralConfig.ContinueMiningIfNoInternetAccess;
             }
 
             // Textboxes
@@ -470,6 +505,7 @@ namespace NiceHashMiner.Forms {
             // indicate there has been a change
             IsChange = true;
             ConfigManager.Instance.GeneralConfig.DebugConsole = checkBox_DebugConsole.Checked;
+            ConfigManager.Instance.GeneralConfig.AutoStartMining = checkBox_AutoStartMining.Checked;
             ConfigManager.Instance.GeneralConfig.HideMiningWindows = checkBox_HideMiningWindows.Checked;
             ConfigManager.Instance.GeneralConfig.MinimizeToTray = checkBox_MinimizeToTray.Checked;
             ConfigManager.Instance.GeneralConfig.DeviceDetection.DisableDetectionNVidia6X = checkBox_DisableDetectionNVidia6X.Checked;
@@ -483,6 +519,71 @@ namespace NiceHashMiner.Forms {
             ConfigManager.Instance.GeneralConfig.DisableWindowsErrorReporting = checkBox_DisableWindowsErrorReporting.Checked;
             ConfigManager.Instance.GeneralConfig.NVIDIAP0State = checkBox_NVIDIAP0State.Checked;
             ConfigManager.Instance.GeneralConfig.LogToFile = checkBox_LogToFile.Checked;
+            ConfigManager.Instance.GeneralConfig.ContinueMiningIfNoInternetAccess = checkBox_ContinueMiningIfNoInternetAccess.Checked;
+        }
+
+        private void checkBox_AMD_DisableAMDTempControl_CheckedChanged(object sender, EventArgs e) {
+            if (!_isInitFinished) return;
+
+            // indicate there has been a change
+            IsChange = true;
+            ConfigManager.Instance.GeneralConfig.DisableAMDTempControl = checkBox_AMD_DisableAMDTempControl.Checked;
+            foreach (var cDev in ComputeDevice.AllAvaliableDevices) {
+                var thisListDev = new List<ComputeDevice>() { cDev };
+                if (cDev.DeviceType == DeviceType.AMD) {
+                    foreach (var algorithm in cDev.DeviceBenchmarkConfig.AlgorithmSettings) {
+                        if (algorithm.Key != AlgorithmType.DaggerHashimoto) {
+                            algorithm.Value.ExtraLaunchParameters += AmdGpuDevice.TemperatureParam;
+                            cDev.MostProfitableAlgorithm = algorithm.Value;
+                            algorithm.Value.ExtraLaunchParameters = ExtraLaunchParametersParser.ParseForCDevs(
+                                thisListDev, algorithm.Key, DeviceType.AMD, false
+                                );
+                        }
+                    }
+                }
+            }
+        }
+
+        private void checkBox_DisableDefaultOptimizations_CheckedChanged(object sender, EventArgs e) {
+            if (!_isInitFinished) return;
+
+            // indicate there has been a change
+            IsChange = true;
+            ConfigManager.Instance.GeneralConfig.DisableDefaultOptimizations = checkBox_DisableDefaultOptimizations.Checked;
+            if (ConfigManager.Instance.GeneralConfig.DisableDefaultOptimizations) {
+                foreach (var cDev in ComputeDevice.AllAvaliableDevices) {
+                    var thisListDev = new List<ComputeDevice>() { cDev };
+                    foreach (var algorithm in cDev.DeviceBenchmarkConfig.AlgorithmSettings) {
+                        algorithm.Value.ExtraLaunchParameters = "";
+                        if (cDev.DeviceType == DeviceType.AMD && algorithm.Key != AlgorithmType.DaggerHashimoto) {
+                            algorithm.Value.ExtraLaunchParameters += AmdGpuDevice.TemperatureParam;
+                            cDev.MostProfitableAlgorithm = algorithm.Value;
+                            algorithm.Value.ExtraLaunchParameters = ExtraLaunchParametersParser.ParseForCDevs(
+                                thisListDev, algorithm.Key, cDev.DeviceType, false
+                                );
+                        }
+                    }
+                }
+            } else {
+                foreach (var cDev in ComputeDevice.AllAvaliableDevices) {
+                    if (cDev.DeviceType == DeviceType.CPU) continue; // cpu has no defaults 
+                    var thisListDev = new List<ComputeDevice>() { cDev };
+                    var deviceDefaults = GroupAlgorithms.CreateDefaultsForGroup(cDev.DeviceGroupType);
+                    foreach (var defaultAlgoSettings in deviceDefaults) {
+                        if (cDev.DeviceBenchmarkConfig.AlgorithmSettings.ContainsKey(defaultAlgoSettings.Key)) {
+                            var algorithmKey = defaultAlgoSettings.Key;
+                            var algorithm = cDev.DeviceBenchmarkConfig.AlgorithmSettings[algorithmKey];
+                            algorithm.ExtraLaunchParameters = defaultAlgoSettings.Value.ExtraLaunchParameters;
+                            cDev.MostProfitableAlgorithm = algorithm;
+                            algorithm.ExtraLaunchParameters = ExtraLaunchParametersParser.ParseForCDevs(
+                                thisListDev, algorithmKey, cDev.DeviceType, false
+                                );
+                        }
+                    }
+                    // set extra optimizations based on device
+                    cDev.SetDeviceBenchmarkConfig(cDev.DeviceBenchmarkConfig, true);
+                }
+            }
         }
 
         private void GeneralTextBoxes_Leave(object sender, EventArgs e) {
@@ -560,33 +661,6 @@ namespace NiceHashMiner.Forms {
             groupBoxAlgorithmSettings.Text = String.Format(International.GetText("FormSettings_AlgorithmsSettings"), _selectedComputeDevice.Name);
         }
 
-        // TODO IMPORTANT get back to this div thing
-        static double[] div = new double[] {
-                                 1000000,       //   0 (MH/s) Scrypt
-                                 1000000000000, //   1 (TH/s) SHA256
-                                 1000000,       //   2 (MH/s) ScryptNf
-                                 1000000,       //   3 (MH/s) X11
-                                 1000000,       //   4 (MH/s) X13
-                                 1000000,       //   5 (MH/s) Keccak
-                                 1000000,       //   6 (MH/s) X15
-                                 1000000,       //   7 (MH/s) Nist5
-                                 1000000,       //   8 (MH/s) NeoScrypt
-                                 1000000,       //   9 (MH/s) Lyra2RE
-                                 1000000,       //  10 (MH/s) WhirlpoolX
-                                 1000000,       //  11 (MH/s) Qubit
-                                 1000000,       //  12 (MH/s) Quark
-                                 1000,          //  13 (kH/s) Axiom
-                                 1000000,       //  14 (MH/s) Lyra2REv2
-                                 1000,          //  15 (kH/s) ScryptJaneNf16
-                                 1000000000,    //  16 (GH/s) Blake256r8
-                                 1000000000,    //  17 (GH/s) Blake256r14
-                                 1000000000,    //  18 (GH/s) Blake256r8vnl
-                                 1000,          //  19 (kH/s) Hodl
-                                 1000000,       //  20 (MH/s) Daggerhashimoto
-                                 1000000000,    //  21 (GH/s) Decred
-                                 1000,          //  22 (kH/s) CryptoNight
-                                 1000000 }; // 999 (MH/s) Ethereum
-
         private void buttonSelectedProfit_Click(object sender, EventArgs e) {
             if (_selectedComputeDevice == null) {
                 MessageBox.Show(International.GetText("FormSettings_ButtonProfitSingle"),
@@ -594,10 +668,10 @@ namespace NiceHashMiner.Forms {
                                 MessageBoxButtons.OK);
                 return;
             }
-            var url = "https://www.nicehash.com/?p=calc&name=" + _selectedComputeDevice.Name;
+            var url = Links.NHM_Profit_Check + _selectedComputeDevice.Name;
             foreach (var algorithm in _selectedComputeDevice.DeviceBenchmarkConfig.AlgorithmSettings.Values) {
                 var id = (int)algorithm.NiceHashID;
-                url += "&speed" + id + "=" + (algorithm.BenchmarkSpeed / div[id]).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                url += "&speed" + id + "=" + ProfitabilityCalculator.GetFormatedSpeed(algorithm.BenchmarkSpeed, algorithm.NiceHashID).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             }
             url += "&nhmver=" + Application.ProductVersion.ToString();  // Add version info
             url += "&cost=1&power=1"; // Set default power and cost to 1
@@ -605,7 +679,7 @@ namespace NiceHashMiner.Forms {
         }
 
         private void buttonAllProfit_Click(object sender, EventArgs e) {
-            var url = "https://www.nicehash.com/?p=calc&name=CUSTOM";
+            var url = Links.NHM_Profit_Check + "CUSTOM";
             Dictionary<AlgorithmType, double> total = new Dictionary<AlgorithmType,double>();
 
             foreach (var curCDev in ComputeDevice.AllAvaliableDevices) {
@@ -619,7 +693,7 @@ namespace NiceHashMiner.Forms {
             }
             foreach (var algorithm in total) {
                 var id = (int)algorithm.Key;
-                url += "&speed" + id + "=" + (algorithm.Value / div[id]).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                url += "&speed" + id + "=" + ProfitabilityCalculator.GetFormatedSpeed(algorithm.Value, algorithm.Key).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             }
             url += "&nhmver=" + Application.ProductVersion.ToString();  // Add version info
             url += "&cost=1&power=1"; // Set default power and cost to 1
@@ -705,10 +779,17 @@ namespace NiceHashMiner.Forms {
             ConfigManager.Instance.GeneralConfig.DisplayCurrency = Selected;
         }
 
-        #endregion Form Callbacks        
+        #endregion Form Callbacks
 
-        private void Form_Settings_Resize(object sender, EventArgs e) {
-            pictureBox_MinProfit.Location = new Point(label_MinProfit.Location.X + label_MinProfit.Size.Width, pictureBox_MinProfit.Location.Y);
+        private void tabControlGeneral_Selected(object sender, TabControlEventArgs e) {
+            // set first device selected {
+            if (ComputeDevice.AllAvaliableDevices.Count > 0) {
+                algorithmSettingsControl1.Deselect();
+                //_selectedComputeDevice = ComputeDevice.AllAvaliableDevices[0];
+                //algorithmsListView1.SetAlgorithms(_selectedComputeDevice, _selectedComputeDevice.ComputeDeviceEnabledOption.IsEnabled);
+                //groupBoxAlgorithmSettings.Text = String.Format(International.GetText("FormSettings_AlgorithmsSettings"), _selectedComputeDevice.Name);
+                //devicesListViewEnableControl1.SetFirstSelected();
+            }
         }
 
     }

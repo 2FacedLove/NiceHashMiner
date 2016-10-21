@@ -18,15 +18,19 @@ using NiceHashMiner.Forms.Components;
 using NiceHashMiner.Utils;
 using NiceHashMiner.PInvoke;
 
+using SystemTimer = System.Timers.Timer;
+using Timer = System.Windows.Forms.Timer;
+using System.Timers;
+
 namespace NiceHashMiner
 {
     public partial class Form_Main : Form, Form_Loading.IAfterInitializationCaller, IMainFormRatesComunication
     {
-        private static string VisitURL = "http://www.nicehash.com";
+        private static string VisitURL = Links.VisitURL;
 
         private Timer MinerStatsCheck;
         private Timer UpdateCheck;
-        private Timer SMACheck;
+        private SystemTimer SMACheck;
         private Timer BalanceCheck;
         private Timer SMAMinerCheck;
         private Timer BitcoinExchangeCheck;
@@ -44,8 +48,7 @@ namespace NiceHashMiner
 
         int flowLayoutPanelVisibleCount = 0;
         int flowLayoutPanelRatesIndex = 0;
-
-        
+                
         const string _betaAlphaPostfixString = "";
 
         private bool _isDeviceDetectionInitialized = false;
@@ -53,6 +56,7 @@ namespace NiceHashMiner
         public Form_Main()
         {
             InitializeComponent();
+            this.Icon = NiceHashMiner.Properties.Resources.logo;
 
             InitLocalization();
 
@@ -73,6 +77,7 @@ namespace NiceHashMiner
             label_NotProfitable.Visible = false;
 
             InitMainConfigGUIData();
+
             // for resizing
             InitFlowPanelStart();
             ClearRatesALL();
@@ -173,6 +178,19 @@ namespace NiceHashMiner
             StartupTimer.Stop();
             StartupTimer = null;
 
+            if (!Helpers.Is45NetOrHigher()) {
+                MessageBox.Show(International.GetText("NET45_Not_Intsalled_msg"),
+                                International.GetText("Warning_with_Exclamation"),
+                                MessageBoxButtons.OK);
+
+                this.Close();
+                return;
+            }
+
+            // 
+            CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
             if (!Helpers.InternalCheckIsWow64()) {
                 MessageBox.Show(International.GetText("Form_Main_x64_Support_Only"),
                                 International.GetText("Warning_with_Exclamation"),
@@ -218,8 +236,8 @@ namespace NiceHashMiner
 
             LoadingScreen.IncreaseLoadCounterAndMessage(International.GetText("Form_Main_loadtext_GetNiceHashSMA"));
 
-            SMACheck = new Timer();
-            SMACheck.Tick += SMACheck_Tick;
+            SMACheck = new SystemTimer();
+            SMACheck.Elapsed += SMACheck_Tick;
             SMACheck.Interval = 60 * 1000; // every 60 seconds
             SMACheck.Start();
 
@@ -313,6 +331,13 @@ namespace NiceHashMiner
                 if (result == System.Windows.Forms.DialogResult.No) {
                     Close();
                     return;
+                } else {
+                    // users agrees he installed it so commit changes
+                    ConfigManager.Instance.GeneralConfig.Commit();
+                }
+            } else {
+                if (ConfigManager.Instance.GeneralConfig.AutoStartMining) {
+                    buttonStartMining_Click(null, null);
                 }
             }
         }
@@ -374,6 +399,7 @@ namespace NiceHashMiner
         }
 
         public void ClearRates(int groupCount) {
+            float panelHeight = -1;
             if (flowLayoutPanelVisibleCount != groupCount) {
                 flowLayoutPanelVisibleCount = groupCount;
                 // hide some Controls
@@ -383,13 +409,22 @@ namespace NiceHashMiner
                     ++hideIndex;
                 }
             }
+            flowLayoutPanelRatesIndex = 0;
+            int visibleGroupCount = groupCount + 1;
+            if (visibleGroupCount <= 0) visibleGroupCount = 1;
+            if (panelHeight <= 0) {
+                if (flowLayoutPanelRates.Controls != null && flowLayoutPanelRates.Controls.Count > 0) {
+                    var control = flowLayoutPanelRates.Controls[0];
+                    panelHeight = ((GroupProfitControl)control).Size.Height * 1.2f;
+                } else {
+                    panelHeight = 40;
+                }
+            }
 
             var oldHeight = groupBox1.Size.Height;
-            flowLayoutPanelRatesIndex = 0;
-            if (groupCount < 0) groupCount = 0;
-            groupBox1.Size = new Size(groupBox1.Size.Width, (groupCount + 1) * 40);
+            groupBox1.Size = new Size(groupBox1.Size.Width, (int)( (visibleGroupCount) * panelHeight ));
             // set new height
-            this.Size = new Size(this.Size.Width, this.Size.Height - (oldHeight - groupBox1.Size.Height));
+            this.Size = new Size(this.Size.Width, this.Size.Height + groupBox1.Size.Height - oldHeight);
         }
 
         public void AddRateInfo(string groupName, string deviceStringInfo, APIData iAPIData, double paying, bool isApiGetException) {
@@ -406,8 +441,9 @@ namespace NiceHashMiner
             UpdateGlobalRate();
         }
 
-        public void ShowNotProfitable() {
+        public void ShowNotProfitable(string msg) {
             label_NotProfitable.Visible = true;
+            label_NotProfitable.Text = msg;
             label_NotProfitable.Invalidate();
         }
         public void HideNotProfitable() {
@@ -519,7 +555,7 @@ namespace NiceHashMiner
             if (ret < 0)
             {
                 linkLabelVisitUs.Text = String.Format(International.GetText("Form_Main_new_version_released"), ver);
-                VisitURL = "https://github.com/nicehash/NiceHashMiner/releases/tag/" + ver;
+                VisitURL = Links.VisitURLNew + ver;
             }
         }
 
@@ -560,7 +596,7 @@ namespace NiceHashMiner
                                                       MessageBoxButtons.YesNo, MessageBoxIcon.Error);
                 
                 if (result == System.Windows.Forms.DialogResult.Yes)
-                    System.Diagnostics.Process.Start("https://www.nicehash.com/index.jsp?p=faq#faqs15");
+                    System.Diagnostics.Process.Start(Links.NHM_BTC_Wallet_Faq);
                 
                 textBoxBTCAddress.Focus();
                 return false;
@@ -589,13 +625,13 @@ namespace NiceHashMiner
         {
             if (!VerifyMiningAddress(true)) return;
 
-            System.Diagnostics.Process.Start("http://www.nicehash.com/index.jsp?p=miners&addr=" + textBoxBTCAddress.Text.Trim());
+            System.Diagnostics.Process.Start(Links.CheckStats + textBoxBTCAddress.Text.Trim());
         }
 
 
         private void linkLabelChooseBTCWallet_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.nicehash.com/index.jsp?p=faq#faqs15");
+            System.Diagnostics.Process.Start(Links.NHM_BTC_Wallet_Faq);
         }
 
 
@@ -610,12 +646,10 @@ namespace NiceHashMiner
         {
             ConfigManager.Instance.GeneralConfig.ServiceLocation = comboBoxLocation.SelectedIndex;
 
-            SMACheck.Stop();
             BenchmarkForm = new Form_Benchmark();
             SetChildFormCenter(BenchmarkForm);
             BenchmarkForm.ShowDialog();
             BenchmarkForm = null;
-            SMACheck.Start();
 
             InitMainConfigGUIData();
         }
@@ -683,7 +717,6 @@ namespace NiceHashMiner
                                                           International.GetText("Warning_with_Exclamation"),
                                                           MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
                 if (result == System.Windows.Forms.DialogResult.Yes) {
-                    SMACheck.Stop();
                     List<ComputeDevice> enabledDevices = new List<ComputeDevice>();
                     HashSet<string> deviceNames = new HashSet<string>();
                     foreach (var cdev in ComputeDevice.AllAvaliableDevices) {
@@ -699,7 +732,6 @@ namespace NiceHashMiner
                     BenchmarkForm.ShowDialog();
                     BenchmarkForm = null;
                     InitMainConfigGUIData();
-                    SMACheck.Start();
                 } else if (result == System.Windows.Forms.DialogResult.No) {
                     // check devices without benchmarks
                     foreach (var cdev in ComputeDevice.AllAvaliableDevices) {
@@ -715,6 +747,22 @@ namespace NiceHashMiner
                 } else {
                     return;
                 }
+            }
+
+            // check if any device enabled
+            // check devices without benchmarks
+            bool noDeviceEnabled = true;
+            foreach (var cdev in ComputeDevice.AllAvaliableDevices) {
+                if (cdev.ComputeDeviceEnabledOption.IsEnabled) {
+                    noDeviceEnabled = false;
+                    break;
+                }
+            }
+            if (noDeviceEnabled) {
+                DialogResult result = MessageBox.Show(International.GetText("Form_Main_No_Device_Enabled_For_Mining"),
+                                                          International.GetText("Warning_with_Exclamation"),
+                                                          MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
 
             textBoxBTCAddress.Enabled = false;
@@ -788,12 +836,12 @@ namespace NiceHashMiner
 
         private void buttonHelp_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://github.com/nicehash/NiceHashMiner");
+            System.Diagnostics.Process.Start(Links.NHM_Help);
         }
 
         private void toolStripStatusLabel10_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.nicehash.com/index.jsp?p=faq#faqs6");
+            System.Diagnostics.Process.Start(Links.NHM_Paying_Faq);
         }
 
         private void toolStripStatusLabel10_MouseHover(object sender, EventArgs e)

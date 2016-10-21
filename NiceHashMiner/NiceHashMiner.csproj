@@ -104,6 +104,8 @@
     <Compile Include="Enums\DeviceType.cs" />
     <Compile Include="Enums\LanguageType.cs" />
     <Compile Include="Enums\MinerAPIReadStatus.cs" />
+    <Compile Include="Enums\MinerOptionType.cs" />
+    <Compile Include="Enums\MinerOptionFlagType.cs" />
     <Compile Include="Enums\MinerStopType.cs" />
     <Compile Include="Forms\Components\AlgorithmsListView.cs">
       <SubType>UserControl</SubType>
@@ -153,19 +155,20 @@
     <Compile Include="Forms\Form_Benchmark.Designer.cs">
       <DependentUpon>Form_Benchmark.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\Form_ChooseLanguage_r.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Form_ChooseLanguage_r.Designer.cs">
+      <DependentUpon>Form_ChooseLanguage_r.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\Form_Settings.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\Form_Settings.Designer.cs">
       <DependentUpon>Form_Settings.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\Form_ChooseLanguage.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\Form_ChooseLanguage.Designer.cs">
-      <DependentUpon>Form_ChooseLanguage.cs</DependentUpon>
-    </Compile>
     <Compile Include="Globals.cs" />
+    <Compile Include="Interfaces\IBenchmarkCalculation.cs" />
     <Compile Include="Interfaces\IBenchmarkComunicator.cs" />
     <Compile Include="Interfaces\IListItemCheckColorSetter.cs" />
     <Compile Include="Interfaces\IMainFormRatesComunication.cs" />
@@ -174,14 +177,17 @@
     <Compile Include="Interfaces\IPathsProperties.cs" />
     <Compile Include="International.cs" />
     <Compile Include="Devices\ComputeDeviceGroupManager.cs" />
+    <Compile Include="Links.cs" />
     <Compile Include="MemoryHelper.cs" />
     <Compile Include="Miners\ccminer_sm6x.cs" />
+    <Compile Include="Miners\ExtraLaunchParametersParser.cs" />
     <Compile Include="Miners\ManagerPrivate\CpuGroupMiner.cs" />
     <Compile Include="Miners\ManagerPrivate\GroupMiners.cs" />
     <Compile Include="Miners\ManagerPrivate\SwitchTesting.cs" />
     <Compile Include="Miners\MinerEtherum.cs" />
     <Compile Include="Miners\MinerEtherumCUDA.cs" />
     <Compile Include="Miners\MinerEtherumOCL.cs" />
+    <Compile Include="Miners\MinerOption.cs" />
     <Compile Include="Miners\MinerPaths.cs" />
     <Compile Include="Miners\MinersApiPortsManager.cs" />
     <Compile Include="Miners\MinersManager.cs" />
@@ -225,6 +231,7 @@
     </Compile>
     <Compile Include="NiceHashStats.cs" />
     <Compile Include="PInvoke\PInvokeHelpers.cs" />
+    <Compile Include="ProfitabilityCalculator.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Miners\sgminer.cs" />
@@ -237,6 +244,7 @@
     <Compile Include="Utils\MinersDownloadManager.cs" />
     <EmbeddedResource Include="Forms\Components\AlgorithmsListView.resx">
       <DependentUpon>AlgorithmsListView.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\Components\AlgorithmSettingsControl.resx">
       <DependentUpon>AlgorithmSettingsControl.cs</DependentUpon>
@@ -260,11 +268,11 @@
     <EmbeddedResource Include="Forms\Form_Benchmark.resx">
       <DependentUpon>Form_Benchmark.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\Form_ChooseLanguage_r.resx">
+      <DependentUpon>Form_ChooseLanguage_r.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\Form_Settings.resx">
       <DependentUpon>Form_Settings.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\Form_ChooseLanguage.resx">
-      <DependentUpon>Form_ChooseLanguage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\DriverVersionConfirmationDialog.resx">
       <DependentUpon>DriverVersionConfirmationDialog.cs</DependentUpon>

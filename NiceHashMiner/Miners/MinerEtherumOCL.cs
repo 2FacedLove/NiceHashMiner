@@ -15,13 +15,14 @@ namespace NiceHashMiner.Miners {
 
         // reference to all MinerEtherumOCL make sure to clear this after miner Stop
         // we make sure only ONE instance of MinerEtherumOCL is running
-        private static List<MinerEtherumOCL> MinerEtherumOCLList = new List<MinerEtherumOCL>();
+        private static List<MinerEtherum> MinerEtherumOCLList = new List<MinerEtherum>();
 
         private readonly int GPUPlatformNumber;
 
         public MinerEtherumOCL()
             : base(DeviceType.AMD, "MinerEtherumOCL", "AMD OpenCL") {
             GPUPlatformNumber = ComputeDeviceQueryManager.Instance.AMDOpenCLPlatformNum;
+            MinerEtherumOCLList.Add(this);
         }
 
         ~MinerEtherumOCL() {
@@ -31,30 +32,31 @@ namespace NiceHashMiner.Miners {
 
         public override void Start(Algorithm miningAlgorithm, string url, string username) {
             Helpers.ConsolePrint(MinerTAG(), "Starting MinerEtherumOCL, checking existing MinerEtherumOCL to stop");
-            foreach (var ethminer in MinerEtherumOCLList) {
-                if (ethminer.MINER_ID != MINER_ID && (ethminer.IsRunning || ethminer.IsPaused)) {
-                    Helpers.ConsolePrint(MinerTAG(), String.Format("Will end {0} {1}", ethminer.MinerTAG(), ethminer.ProcessTag()));
-                    ethminer.End();
-                    System.Threading.Thread.Sleep(ConfigManager.Instance.GeneralConfig.MinerRestartDelayMS);
-                }
-            }
-            base.Start(miningAlgorithm, url, username);
+            base.Start(miningAlgorithm, url, username, MinerEtherumOCLList);
         }
 
         protected override string GetStartCommandStringPart(Algorithm miningAlgorithm, string url, string username) {
             // set directory
             WorkingDirectory = "";
             return " --opencl --opencl-platform " + GPUPlatformNumber
-                + " " + miningAlgorithm.ExtraLaunchParameters
+                + " "
+                + ExtraLaunchParametersParser.ParseForCDevs(
+                                                    CDevs,
+                                                    AlgorithmType.DaggerHashimoto,
+                                                    DeviceType.AMD)
                 + " -S " + url.Substring(14)
                 + " -O " + username + ":" + Algorithm.PasswordDefault
                 + " --api-port " + APIPort.ToString()
                 + " --opencl-devices ";
         }
 
-        protected override string GetBenchmarkCommandStringPart(ComputeDevice benchmarkDevice, Algorithm algorithm) {
+        protected override string GetBenchmarkCommandStringPart(Algorithm algorithm) {
             return " --opencl --opencl-platform " + GPUPlatformNumber
-                + " " + algorithm.ExtraLaunchParameters
+                + " "
+                + ExtraLaunchParametersParser.ParseForCDevs(
+                                                    CDevs,
+                                                    AlgorithmType.DaggerHashimoto,
+                                                    DeviceType.AMD)
                 + " --benchmark-warmup 40 --benchmark-trial 20"
                 + " --opencl-devices ";
         }

@@ -24,7 +24,10 @@ namespace NiceHashMiner.Utils {
 
         const string d_01 = "https://github.com/nicehash/NiceHashMiner/releases/download/1.7.0.0-dev/bin.zip";
         const string d_v1_7_0_4 = "https://github.com/nicehash/NiceHashMiner/releases/download/1.7.0.0-dev/bin_1_7_0_4.zip";
-        public string BinsDownloadURL = d_v1_7_0_4;
+        const string d_v1_7_1_3 = "https://github.com/nicehash/NiceHashMiner/releases/download/1.7.0.0-dev/bin_1_7_1_3.zip";
+        const string d_v1_7_1_4 = "https://github.com/nicehash/NiceHashMiner/releases/download/1.7.0.0-dev/bin_1_7_1_4.zip";
+        const string d_v1_7_2_0 = "https://github.com/nicehash/NiceHashMiner/releases/download/1.7.0.0-dev/bin_1_7_2_0.zip";
+        public string BinsDownloadURL = d_v1_7_2_0;
         public string BinsZipLocation = "bins.zip";
 
         private class DownloadData {
@@ -152,6 +155,12 @@ namespace NiceHashMiner.Utils {
             } else {
                 // TODO handle Success
                 Helpers.ConsolePrint(TAG, "DownloadCompleted Success");
+                // wait one second for binary to exist
+                System.Threading.Thread.Sleep(1000);
+                // extra check dirty
+                int try_count = 50;
+                while (!File.Exists(BinsZipLocation) && try_count > 0) { --try_count; }
+
                 UnzipStart();
             }
         }
@@ -192,16 +201,19 @@ namespace NiceHashMiner.Utils {
                         }
                     }
                 }
+                // after unzip stuff
+                ConfigManager.Instance.GeneralConfig.DownloadInit = true;
+                ConfigManager.Instance.GeneralConfig.Commit();
+                _minerUpdateIndicator.FinishMsg(IsMinersBinsInit());
+                // remove bins zip
+                try {
+                    if (File.Exists(BinsZipLocation)) {
+                        File.Delete(BinsZipLocation);
+                    }
+                } catch { }
+            } else {
+                Helpers.ConsolePrint(TAG, "UnzipThreadRoutine bin.zip file not found");
             }
-            ConfigManager.Instance.GeneralConfig.DownloadInit = true;
-            ConfigManager.Instance.GeneralConfig.Commit();
-            _minerUpdateIndicator.FinishMsg(IsMinersBinsInit());
-            // remove bins zip
-            try {
-                if (File.Exists(BinsZipLocation)) {
-                    File.Delete(BinsZipLocation);
-                }
-            } catch { }
         }
 
 

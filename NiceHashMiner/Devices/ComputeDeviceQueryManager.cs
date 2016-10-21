@@ -171,7 +171,7 @@ namespace NiceHashMiner.Devices
             _currentNvidiaOpenCLDriver = GetNvidiaOpenCLDriver();
             // if we have nvidia cards but no CUDA devices tell the user to upgrade driver
             bool isNvidiaErrorShown = false; // to prevent showing twice
-            if (HasNvidiaVideoController() && CudaDevices.Count == 0) {
+            if (ConfigManager.Instance.GeneralConfig.ShowDriverVersionWarning && HasNvidiaVideoController() && CudaDevices.Count == 0) {
                 isNvidiaErrorShown = true;
                 var minDriver = NVIDIA_MIN_DETECTION_DRIVER.ToString();
                 var recomendDrvier = NVIDIA_RECOMENDED_DRIVER.ToString();
@@ -181,7 +181,7 @@ namespace NiceHashMiner.Devices
                                                       MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             // recomended driver
-            if (HasNvidiaVideoController() && _currentNvidiaOpenCLDriver < NVIDIA_RECOMENDED_DRIVER && !isNvidiaErrorShown) {
+            if (ConfigManager.Instance.GeneralConfig.ShowDriverVersionWarning && HasNvidiaVideoController() && _currentNvidiaOpenCLDriver < NVIDIA_RECOMENDED_DRIVER && !isNvidiaErrorShown && _currentNvidiaOpenCLDriver > -1) {
                 var recomendDrvier = NVIDIA_RECOMENDED_DRIVER.ToString();
                 var nvdriverString = _currentNvidiaOpenCLDriver > -1 ? String.Format(International.GetText("Compute_Device_Query_Manager_NVIDIA_Driver_Recomended_PART"), _currentNvidiaOpenCLDriver.ToString())
                 : "";
@@ -258,7 +258,7 @@ namespace NiceHashMiner.Devices
                 AvaliableVideoControllers.Add(vidController);
             }
             Helpers.ConsolePrint(TAG, stringBuilder.ToString());
-            if (!allVideoContollersOK) {
+            if (ConfigManager.Instance.GeneralConfig.ShowDriverVersionWarning && !allVideoContollersOK) {
                 string msg = International.GetText("QueryVideoControllers_NOT_ALL_OK_Msg");
                 foreach (var vc in AvaliableVideoControllers) {
                     if(!vc.Status.ToLower().Equals("ok")) {
@@ -282,6 +282,7 @@ namespace NiceHashMiner.Devices
         #endregion // Video controllers, driver versions
 
         private void QueryCPUs() {
+            Helpers.ConsolePrint(TAG, "QueryCPUs START");
             // get all CPUs
             CPUs = CPUID.GetPhysicalProcessorCount();
 
@@ -317,10 +318,12 @@ namespace NiceHashMiner.Devices
                         i, CPUID.GetCPUName().Trim());
                 }
             }
+            Helpers.ConsolePrint(TAG, "QueryCPUs END");
         }
 
         List<OpenCLDevice> amdGpus = new List<OpenCLDevice>();
         private void QueryAMD() {
+            Helpers.ConsolePrint(TAG, "QueryAMD START");
             //showMessageAndStep(International.GetText("Form_Main_loadtext_AMD"));
             //var dump = new sgminer(true);
 
@@ -333,7 +336,7 @@ namespace NiceHashMiner.Devices
             #region AMD driver check, ADL returns 0
             // check the driver version bool EnableOptimizedVersion = true;
             Dictionary<string, bool> deviceDriverOld = new Dictionary<string, bool>();
-            string minerPath = MinerPaths.sgminer_5_4_0_general;
+            string minerPath = MinerPaths.sgminer_5_5_0_general;
             bool ShowWarningDialog = false;
 
             foreach (var vidContrllr in AvaliableVideoControllers) {
@@ -363,7 +366,7 @@ namespace NiceHashMiner.Devices
                     }
                 }
             }
-            if (ShowWarningDialog == true && ConfigManager.Instance.GeneralConfig.ShowDriverVersionWarning == true) {
+            if (ConfigManager.Instance.GeneralConfig.ShowDriverVersionWarning && ShowWarningDialog == true) {
                 Form WarningDialog = new DriverVersionConfirmationDialog();
                 WarningDialog.ShowDialog();
                 WarningDialog = null;
@@ -545,6 +548,7 @@ namespace NiceHashMiner.Devices
                     }
                 }
             }
+            Helpers.ConsolePrint(TAG, "QueryAMD END");
         }
 
         private void UncheckedCPU() {
@@ -582,6 +586,7 @@ namespace NiceHashMiner.Devices
         }
 
         private void QueryCudaDevices() {
+            Helpers.ConsolePrint(TAG, "QueryCudaDevices START");
             Process CudaDevicesDetection = new Process();
             CudaDevicesDetection.StartInfo.FileName = "CudaDeviceDetection.exe";
             CudaDevicesDetection.StartInfo.UseShellExecute = false;
@@ -666,6 +671,7 @@ namespace NiceHashMiner.Devices
             } else {
                 Helpers.ConsolePrint(TAG, "CudaDevicesDetection found no devices. CudaDevicesDetection returned: " + QueryCudaDevicesString);
             }
+            Helpers.ConsolePrint(TAG, "QueryCudaDevices END");
         }
 
         #endregion // CUDA, NVIDIA Query
@@ -709,6 +715,7 @@ namespace NiceHashMiner.Devices
         }
 
         private void QueryOpenCLDevices() {
+            Helpers.ConsolePrint(TAG, "QueryOpenCLDevices START");
             Process OpenCLDevicesDetection = new Process();
             OpenCLDevicesDetection.StartInfo.FileName = "AMDOpenCLDeviceDetection.exe";
             OpenCLDevicesDetection.StartInfo.UseShellExecute = false;
@@ -758,6 +765,7 @@ namespace NiceHashMiner.Devices
                 }
                 Helpers.ConsolePrint(TAG, stringBuilder.ToString());
             }
+            Helpers.ConsolePrint(TAG, "QueryOpenCLDevices END");
         }
 
         #endregion OpenCL Query

@@ -12,6 +12,7 @@ namespace NiceHashMiner.Configs {
 
         private readonly string TAG;
 
+        // constructor has references don't delete it
         protected ConfigManager() {
             TAG = this.GetType().Name;
             GeneralConfig = new GeneralConfig(true);
@@ -90,6 +91,8 @@ namespace NiceHashMiner.Configs {
             LoadBenchmarks();            
 
             SetDeviceBenchmarkReferences();
+
+            
 
             // check ethminers and remove from settings if no device supports it in config
             foreach (var config in BenchmarkConfigs) {

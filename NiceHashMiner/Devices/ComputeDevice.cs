@@ -37,6 +37,14 @@ namespace NiceHashMiner.Devices
         // UUID now used for saving
         readonly public string UUID;
 
+        // Current Extra Launch Parameters copied from most profitable algorithm for benchmarking
+        [JsonIgnore]
+        public string CurrentExtraLaunchParameters { get; set; }
+
+        // CPU, NVIDIA, AMD
+        [JsonIgnore]
+        readonly public int Threads;
+
         // CPU, NVIDIA, AMD
         [JsonIgnore]
         public DeviceType DeviceType { get; private set; }
@@ -109,11 +117,12 @@ namespace NiceHashMiner.Devices
         }
 
         // CPU 
-        public ComputeDevice(int id, string group, string name, bool addToGlobalList = false, bool enabled = true)
+        public ComputeDevice(int id, string group, string name, int threads, bool addToGlobalList = false, bool enabled = true)
         {
             ID = id;
             Group = group;
             Name = name;
+            Threads = threads;
             _nameNoNums = name;
             Enabled = enabled;
             DeviceGroupType = GroupNames.GetType(Group);
@@ -167,11 +176,11 @@ namespace NiceHashMiner.Devices
         }
 
         // TODO add file check and stuff like that
-        public void SetDeviceBenchmarkConfig(DeviceBenchmarkConfig deviceBenchmarkConfig) {
+        public void SetDeviceBenchmarkConfig(DeviceBenchmarkConfig deviceBenchmarkConfig, bool forceSet = false) {
 
             DeviceBenchmarkConfig = deviceBenchmarkConfig;
             // check initialization
-            if (!DeviceBenchmarkConfig.IsAlgorithmSettingsInit) {
+            if (!DeviceBenchmarkConfig.IsAlgorithmSettingsInit || forceSet) {
                 DeviceBenchmarkConfig.IsAlgorithmSettingsInit = true;
                 // only AMD has extra initialization
                 if (_amdDevice != null) {
@@ -195,10 +204,8 @@ namespace NiceHashMiner.Devices
                 if (_cudaDevice != null) {
                     if (DeviceBenchmarkConfig.AlgorithmSettings.ContainsKey(AlgorithmType.CryptoNight)) {
                         var CryptoNightAlgo = DeviceBenchmarkConfig.AlgorithmSettings[AlgorithmType.CryptoNight];
-                        if (CryptoNightAlgo.ExtraLaunchParameters == "") { 
-                            if (_cudaDevice.SM_major >= 5) {
-                                CryptoNightAlgo.ExtraLaunchParameters = "--bsleep=0 --bfactor=0 --launch=32x" + _cudaDevice.SMX.ToString();
-                            }
+                        if (_cudaDevice.SM_major >= 5 && Name.Contains("Ti") == false) {
+                            CryptoNightAlgo.ExtraLaunchParameters = "--bsleep=0 --bfactor=0 --launch=32x" + _cudaDevice.SMX.ToString();
                         }
                     }
                 }
@@ -211,7 +218,6 @@ namespace NiceHashMiner.Devices
                     var setAlgo = this.DeviceBenchmarkConfig.AlgorithmSettings[copyAlgSpeeds.Key];
                     setAlgo.BenchmarkSpeed = copyAlgSpeeds.Value.BenchmarkSpeed;
                     setAlgo.ExtraLaunchParameters = copyAlgSpeeds.Value.ExtraLaunchParameters;
-                    setAlgo.Intensity = copyAlgSpeeds.Value.Intensity;
                     setAlgo.LessThreads = copyAlgSpeeds.Value.LessThreads;
                 }
             }

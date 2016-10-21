@@ -31,7 +31,7 @@ namespace NiceHashMiner.Miners
         public sgminer()
             : base(DeviceType.AMD, "AMD_OpenCL")
         {            
-            Path = MinerPaths.sgminer_5_4_0_general;
+            Path = MinerPaths.sgminer_5_5_0_general;
             EnableOptimizedVersion = true;
             GPUPlatformNumber = ComputeDeviceQueryManager.Instance.AMDOpenCLPlatformNum;
         }
@@ -40,6 +40,20 @@ namespace NiceHashMiner.Miners
         public void KillSGMiner() {
             foreach (Process process in Process.GetProcessesByName("sgminer")) {
                 try { process.Kill(); } catch (Exception e) { Helpers.ConsolePrint(MinerDeviceName, e.ToString()); }
+            }
+        }
+
+        public override void EndBenchmarkProcces() {
+            if (BenchmarkProcessStatus != BenchmarkProcessStatus.Killing && BenchmarkProcessStatus != BenchmarkProcessStatus.DoneKilling) {
+                BenchmarkProcessStatus = BenchmarkProcessStatus.Killing;
+                try {
+                    Helpers.ConsolePrint("BENCHMARK", String.Format("Trying to kill benchmark process {0} algorithm {1}", BenchmarkProcessPath, BenchmarkAlgorithm.NiceHashName));
+                    KillSGMiner();
+                } catch { } finally {
+                    BenchmarkProcessStatus = BenchmarkProcessStatus.DoneKilling;
+                    Helpers.ConsolePrint("BENCHMARK", String.Format("Benchmark process {0} algorithm {1} KILLED", BenchmarkProcessPath, BenchmarkAlgorithm.NiceHashName));
+                    //BenchmarkHandle = null;
+                }
             }
         }
 
@@ -84,7 +98,11 @@ namespace NiceHashMiner.Miners
                               " --userpass=" + username + ":" + Algorithm.PasswordDefault +
                               " --api-listen" +
                               " --api-port=" + APIPort.ToString() +
-                              " " + miningAlgorithm.ExtraLaunchParameters +
+                              " " +
+                              ExtraLaunchParametersParser.ParseForCDevs(
+                                                                CDevs,
+                                                                CurrentMiningAlgorithm.NiceHashID,
+                                                                DeviceType.AMD) +
                               " --device ";
 
             LastCommandLine += GetDevicesCommandString();
@@ -109,7 +127,7 @@ namespace NiceHashMiner.Miners
                 if (AlgorithmType.Quark == type || AlgorithmType.Lyra2REv2 == type || AlgorithmType.Qubit == type) {
                     if (!(gpuCodename.Contains("Hawaii") || gpuCodename.Contains("Pitcairn") || gpuCodename.Contains("Tahiti"))) {
                         if (!Helpers.InternalCheckIsWow64())
-                            return MinerPaths.sgminer_5_4_0_general;
+                            return MinerPaths.sgminer_5_5_0_general;
 
                         return MinerPaths.sgminer_5_4_0_tweaked;
                     }
@@ -120,13 +138,13 @@ namespace NiceHashMiner.Miners
                 }
             }
 
-            return MinerPaths.sgminer_5_4_0_general;
+            return MinerPaths.sgminer_5_5_0_general;
         }
 
         // new decoupled benchmarking routines
         #region Decoupled benchmarking routines
 
-        protected override string BenchmarkCreateCommandLine(ComputeDevice benchmarkDevice, Algorithm algorithm, int time) {
+        protected override string BenchmarkCreateCommandLine(Algorithm algorithm, int time) {
             string CommandLine;
             Path = "cmd";
             string MinerPath = GetOptimizedMinerPath(algorithm.NiceHashID, CommonGpuCodenameSetting, EnableOptimizedVersion);
@@ -136,10 +154,9 @@ namespace NiceHashMiner.Miners
                          Globals.MiningLocation[ConfigManager.Instance.GeneralConfig.ServiceLocation] + ".nicehash.com:" +
                          nhAlgorithmData.port;
 
-            string username = ConfigManager.Instance.GeneralConfig.BitcoinAddress.Trim();
-            if (String.IsNullOrEmpty(username) || String.IsNullOrWhiteSpace(username)) {
-                username = Globals.DemoUser;
-            } 
+            // demo for benchmark
+            string username = Globals.DemoUser;
+
             if (ConfigManager.Instance.GeneralConfig.WorkerName.Length > 0)
                 username += "." + ConfigManager.Instance.GeneralConfig.WorkerName.Trim();
 
@@ -151,7 +168,11 @@ namespace NiceHashMiner.Miners
                           " --userpass=" + username + ":" + Algorithm.PasswordDefault +
                           " --sched-stop " + DateTime.Now.AddSeconds(time).ToString("HH:mm") +
                           " -T --log 10 --log-file dump.txt" +
-                          " " + algorithm.ExtraLaunchParameters +
+                          " " +
+                          ExtraLaunchParametersParser.ParseForCDevs(
+                                                                CDevs,
+                                                                algorithm.NiceHashID,
+                                                                DeviceType.AMD) +
                           " --device ";
 
             CommandLine += GetDevicesCommandString();
@@ -204,8 +225,8 @@ namespace NiceHashMiner.Miners
 
             _benchmarkTimer.Reset();
             _benchmarkTimer.Start();
-            // call base
-            base.BenchmarkThreadRoutineStartSettup();
+            // call base, read only outpus
+            BenchmarkHandle.BeginOutputReadLine();
         }
 
         protected override void BenchmarkOutputErrorDataReceivedImpl(string outdata) {

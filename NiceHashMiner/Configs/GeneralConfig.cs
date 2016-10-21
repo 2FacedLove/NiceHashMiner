@@ -24,6 +24,7 @@ namespace NiceHashMiner.Configs {
         public string BitcoinAddress { get; set; }
         public string WorkerName { get; set; }
         public int ServiceLocation { get; set; }
+        public bool AutoStartMining { get; set; }
         public bool HideMiningWindows { get; set; }
         public bool MinimizeToTray { get; set; }
         //public int LessThreads { get; set; }
@@ -64,6 +65,9 @@ namespace NiceHashMiner.Configs {
 
         public BenchmarkTimeLimitsConfig BenchmarkTimeLimits { get; set; }
         public DeviceDetectionConfig DeviceDetection { get; set; }
+
+        public bool DisableAMDTempControl { get; set; }
+        public bool DisableDefaultOptimizations { get; set; }
         
         public bool AutoScaleBTCValues { get; set; }
         public bool StartMiningWhenIdle { get; set; }
@@ -103,6 +107,9 @@ namespace NiceHashMiner.Configs {
             }
         }
         public double MinimumProfit { get; set; }
+
+        public bool ContinueMiningIfNoInternetAccess { get; set; }
+
         public string hwid { get; set; }
 
         public bool DownloadInit { get; set; }
@@ -138,12 +145,15 @@ namespace NiceHashMiner.Configs {
             BitcoinAddress = "";
             WorkerName = "worker1";
             ServiceLocation = 0;
+            AutoStartMining = false;
             //LessThreads = 0;
             DebugConsole = false;
             HideMiningWindows = false;
             MinimizeToTray = false;
             BenchmarkTimeLimits = new BenchmarkTimeLimitsConfig();
             DeviceDetection = new DeviceDetectionConfig();
+            DisableAMDTempControl = false;
+            DisableDefaultOptimizations = false;
             AutoScaleBTCValues = true;
             StartMiningWhenIdle = false;
             LogToFile = true;
@@ -162,6 +172,7 @@ namespace NiceHashMiner.Configs {
             MinimumProfit = 0;
             EthminerDagGenerationType = DagGenerationType.SingleKeep;
             DownloadInit = false;
+            ContinueMiningIfNoInternetAccess = false;
         }
 
         public GeneralConfig(bool initDefaults = false) {
@@ -207,7 +218,7 @@ namespace NiceHashMiner.Configs {
             BitcoinAddress = _file.BitcoinAddress;
             WorkerName = _file.WorkerName;
             ServiceLocation = _file.ServiceLocation;
-            //AutoStartMining = _file.AutoStartMining;
+            AutoStartMining = _file.AutoStartMining;
             HideMiningWindows = _file.HideMiningWindows;
             MinimizeToTray = _file.MinimizeToTray;
             //LessThreads = _file.LessThreads;
@@ -236,7 +247,13 @@ namespace NiceHashMiner.Configs {
             ApiBindPortPoolStart = _file.ApiBindPortPoolStart;
             MinimumProfit = _file.MinimumProfit;
 
-            DownloadInit = _file.DownloadInit;
+            DisableAMDTempControl = _file.DisableAMDTempControl;
+            DisableDefaultOptimizations = _file.DisableDefaultOptimizations;
+
+            ContinueMiningIfNoInternetAccess = _file.ContinueMiningIfNoInternetAccess;
+            if (!IsNewVersion) {
+                DownloadInit = _file.DownloadInit;
+            }
 
             hwidLoadFromFile = true;
             hwidOK = this.hwid == _file.hwid;
@@ -256,13 +273,6 @@ namespace NiceHashMiner.Configs {
             }
 
             LastDevicesSettup = ComputeDevice.AllAvaliableDevices;
-        }
-
-        public void Delete() {
-            try {
-                File.Delete(FilePath);
-            } catch {
-            }
         }
     }
 }

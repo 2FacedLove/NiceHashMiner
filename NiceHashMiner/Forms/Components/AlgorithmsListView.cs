@@ -28,6 +28,8 @@ namespace NiceHashMiner.Forms.Components {
 
         public IAlgorithmsListView ComunicationInterface { get; set; }
 
+        public IBenchmarkCalculation BenchmarkCalculation { get; set; }
+
         ComputeDevice _computeDevice;
 
         private class DefaultAlgorithmColorSeter : IListItemCheckColorSetter {
@@ -82,19 +84,13 @@ namespace NiceHashMiner.Forms.Components {
             listViewAlgorithms.Columns[RATE].Text = International.GetText("AlgorithmsListView_Rate");
         }
 
-        //public void RemoveRatioRates() {
-        //    listViewAlgorithms.Columns.RemoveAt(RATE);
-        //    listViewAlgorithms.Columns.RemoveAt(RATIO);
-        //}
-
         public void SetAlgorithms(ComputeDevice computeDevice, bool isEnabled) {
             _computeDevice = computeDevice;
             var config = computeDevice.DeviceBenchmarkConfig;
+            listViewAlgorithms.BeginUpdate();
             listViewAlgorithms.Items.Clear();
             foreach (var alg in config.AlgorithmSettings) {
                 ListViewItem lvi = new ListViewItem();
-                lvi.Checked = !alg.Value.Skip;
-                //lvi.Text = alg.Value.NiceHashName;
                 ListViewItem.ListViewSubItem sub = lvi.SubItems.Add(alg.Value.NiceHashName);
 
                 //sub.Tag = alg.Value;
@@ -102,9 +98,10 @@ namespace NiceHashMiner.Forms.Components {
                 lvi.SubItems.Add(alg.Value.CurPayingRatio);
                 lvi.SubItems.Add(alg.Value.CurPayingRate);
                 lvi.Tag = alg.Value;
-                _listItemCheckColorSetter.LviSetColor(lvi);
+                lvi.Checked = !alg.Value.Skip;
                 listViewAlgorithms.Items.Add(lvi);
             }
+            listViewAlgorithms.EndUpdate();
             this.Enabled = isEnabled;
         }
 
@@ -140,8 +137,18 @@ namespace NiceHashMiner.Forms.Components {
             }
             var lvi = e.Item as ListViewItem;
             _listItemCheckColorSetter.LviSetColor(lvi);
+            // update benchmark status data
+            if (BenchmarkCalculation != null) BenchmarkCalculation.CalcBenchmarkDevicesAlgorithmQueue();
         }
         #endregion //Callbacks Events
+
+        public void ResetListItemColors() {
+            foreach (ListViewItem lvi in listViewAlgorithms.Items) {
+                if (_listItemCheckColorSetter != null) {
+                    _listItemCheckColorSetter.LviSetColor(lvi);
+                }
+            }
+        }
 
         // benchmark settings
         public void SetSpeedStatus(ComputeDevice computeDevice, AlgorithmType algorithmType, string status) {
@@ -166,5 +173,40 @@ namespace NiceHashMiner.Forms.Components {
                 }
             }
         }
+
+        private void listViewAlgorithms_MouseClick(object sender, MouseEventArgs e) {
+            if (IsInBenchmark) return;
+            if (e.Button == MouseButtons.Right) {
+                contextMenuStrip1.Items.Clear();
+                // disable all
+                {
+                    var disableAllItems = new ToolStripMenuItem();
+                    disableAllItems.Text = International.GetText("AlgorithmsListView_ContextMenu_DisableAll");
+                    disableAllItems.Click += toolStripMenuItemDisableAll_Click;
+                    contextMenuStrip1.Items.Add(disableAllItems);
+                }
+                // enable all
+                {
+                    var enableAllItems = new ToolStripMenuItem();
+                    enableAllItems.Text = International.GetText("AlgorithmsListView_ContextMenu_EnableAll");
+                    enableAllItems.Click += toolStripMenuItemEnableAll_Click;
+                    contextMenuStrip1.Items.Add(enableAllItems);
+                }
+                contextMenuStrip1.Show(Cursor.Position);
+            }
+        }
+
+        private void toolStripMenuItemEnableAll_Click(object sender, EventArgs e) {
+            foreach (ListViewItem lvi in listViewAlgorithms.Items) {
+                lvi.Checked = true;
+            }
+        }
+
+        private void toolStripMenuItemDisableAll_Click(object sender, EventArgs e) {
+            foreach (ListViewItem lvi in listViewAlgorithms.Items) {
+                lvi.Checked = false;
+            }
+        }
+
     }
 }

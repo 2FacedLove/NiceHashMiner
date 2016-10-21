@@ -9,6 +9,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
 
+using Timer = System.Timers.Timer;
+using System.Timers;
+
 namespace NiceHashMiner.Miners {
     // typedefs
     using DeviceSubsetList = List<SortedSet<string>>;
@@ -18,7 +21,6 @@ namespace NiceHashMiner.Miners {
     using GroupedDevices = SortedSet<string>;
     using AllGroupedDevices = List<SortedSet<string>>;
     using NiceHashMiner.Interfaces;
-    using System.Windows.Forms;
     
     
 
@@ -76,6 +78,7 @@ namespace NiceHashMiner.Miners {
         Dictionary<string, cpuminer> _cpuMiners = new Dictionary<string, cpuminer>();
 
         private bool IsProfitable = true;
+        private bool IsConnectedToInternet = true;
 
         readonly string TAG;
 
@@ -86,14 +89,14 @@ namespace NiceHashMiner.Miners {
         protected MinersManager() {
             TAG = this.GetType().Name;
             _preventSleepTimer = new Timer();
-            _preventSleepTimer.Tick += PreventSleepTimer_Tick;
+            _preventSleepTimer.Elapsed += PreventSleepTimer_Tick;
              // sleep time is minimal 1 minute
             _preventSleepTimer.Interval = 20 * 1000; // leave this interval, it works
 
             // set internet checking
             _internetCheckTimer = new Timer();
-            _internetCheckTimer.Tick += InternetCheckTimer_Tick;
-            _internetCheckTimer.Interval = 1000 * 60 * 5;
+            _internetCheckTimer.Elapsed += InternetCheckTimer_Tick;
+            _internetCheckTimer.Interval = 1000 * 30 * 1; // every minute or 5?? // 1000 * 60 * 1
 
             // path checker
             Helpers.ConsolePrint(TAG, "Creating MinerPathChecker miners");
@@ -104,14 +107,12 @@ namespace NiceHashMiner.Miners {
         }
 
         private void InternetCheckTimer_Tick(object sender, EventArgs e) {
-            //if () {
-
-            //} else {
-
-            //}
+            if (ConfigManager.Instance.GeneralConfig.ContinueMiningIfNoInternetAccess == false) {
+                IsConnectedToInternet = Helpers.IsConnectedToInternet();
+            }
         }
 
-        private void PreventSleepTimer_Tick(object sender, EventArgs e) {
+        private void PreventSleepTimer_Tick(object sender, ElapsedEventArgs e) {
             // when mining keep system awake, prevent sleep
             Helpers.PreventSleep();
         }
@@ -133,6 +134,7 @@ namespace NiceHashMiner.Miners {
 
             // restroe/enable sleep
             _preventSleepTimer.Stop();
+            _internetCheckTimer.Stop();
             Helpers.AllowMonitorPowerdownAndSleep();
         }
 
@@ -238,6 +240,8 @@ namespace NiceHashMiner.Miners {
 
             // assume profitable
             IsProfitable = true;
+            // assume we have internet
+            IsConnectedToInternet = true;
 
 
             // this checks if there are enabled devices and enabled algorithms
@@ -269,6 +273,7 @@ namespace NiceHashMiner.Miners {
 
             if (isMiningEnabled) {
                 _preventSleepTimer.Start();
+                _internetCheckTimer.Start();
             }
 
             IsCurrentlyIdle = !isMiningEnabled;
@@ -356,7 +361,11 @@ namespace NiceHashMiner.Miners {
                 foreach (var algoSpeedKvp in nameBenchKvp.Value) {
                     // Log stuff and calculation
                     string name = AlgorithmNiceHashNames.GetName(algoSpeedKvp.Key);
-                    string namePreaty = name + new String(' ', MAX_NAME_LEN - name.Length);
+                    int namePreatyCount = MAX_NAME_LEN - name.Length;
+                    if (namePreatyCount <= 0) {
+                        namePreatyCount = 1;
+                    }
+                    string namePreaty = name + new String(' ', namePreatyCount);
                     bool isEnabled = algoSpeedKvp.Value > 0;
                     double nhmSMADataVal = NiceHashData[algoSpeedKvp.Key].paying;
                     // TODO what is the constant at the end?
@@ -376,7 +385,11 @@ namespace NiceHashMiner.Miners {
                     }
                     // log stuff
                     string speedStr = algoSpeedKvp.Value.ToString("F3");
-                    string speedPreaty = new String(' ', MAX_SPEED_LEN - speedStr.Length) + speedStr;
+                    int speedStrCount = MAX_SPEED_LEN - speedStr.Length;
+                    if (speedStrCount <= 0) {
+                        speedStrCount = 1;
+                    }
+                    string speedPreaty = new String(' ', speedStrCount) + speedStr;
                     stringBuilderDevice.AppendLine(String.Format("\t\t{0}\t:\tPROFIT = {1}  ({2}, SPEED = {3}, NHSMA = {4})",
                     namePreaty, // Name
                     algoProfit.ToString(DOUBLE_FORMAT), // Profit
@@ -404,13 +417,13 @@ namespace NiceHashMiner.Miners {
 #if (SWITCH_TESTING)
  && (!ForcePerCardMiners) // this will force individual miners
 #endif
-                && SafeStrCompare(a.ExtraLaunchParameters, b.ExtraLaunchParameters);
+;
         }
 
-        private bool SafeStrCompare(string a, string b) {
-            if (string.IsNullOrEmpty(a) == true && string.IsNullOrEmpty(a) == string.IsNullOrEmpty(b)) return true;
-            return a == b;
-        }
+        //private bool SafeStrCompare(string a, string b) {
+        //    if (string.IsNullOrEmpty(a) == true && string.IsNullOrEmpty(a) == string.IsNullOrEmpty(b)) return true;
+        //    return a == b;
+        //}
 
         private bool IsNvidiaDevice(ComputeDevice a) {
             foreach (var type in _nvidiaTypes) {
@@ -422,7 +435,7 @@ namespace NiceHashMiner.Miners {
         // checks if dagger algo, same settings and if compute platform is same
         private bool IsDaggerAndSameComputePlatform(ComputeDevice a, ComputeDevice b) {
             return a.MostProfitableAlgorithm.NiceHashID == AlgorithmType.DaggerHashimoto
-                && IsAlgorithmSettingsSame(a.MostProfitableAlgorithm, b.MostProfitableAlgorithm)
+                && a.MostProfitableAlgorithm.NiceHashID == b.MostProfitableAlgorithm.NiceHashID //IsAlgorithmSettingsSame(a.MostProfitableAlgorithm, b.MostProfitableAlgorithm)
                 // check if both etherum capable
                 && a.IsEtherumCapale && b.IsEtherumCapale
                 // compute platforms must be same
@@ -455,31 +468,6 @@ namespace NiceHashMiner.Miners {
                 && IsSameBinPath(a, b);
         }
         #endregion //Groupping logic
-
-        private string GetDevProfitString(string deviceName, Dictionary<AlgorithmType, double> deviceProfits) {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine(String.Format("\tProfits for {0}:", deviceName));
-            // TODO make parameter
-            int MAX_NAME_LEN = "daggerhashimoto".Length;
-            foreach (var kvp in deviceProfits) {
-                string name = AlgorithmNiceHashNames.GetName(kvp.Key);
-                string namePreaty = name + new String(' ', MAX_NAME_LEN - name.Length);
-                stringBuilder.AppendLine(String.Format("\t\t{0}\t:\t{1},",
-                    namePreaty,
-                    kvp.Value.ToString(DOUBLE_FORMAT)));
-            }
-
-            return stringBuilder.ToString();
-        }
-
-        private string GetProfitsSummery(PerDeviceProifitDictionary devProfits) {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("Current device profits:");
-            foreach (var kvp in devProfits) {
-                stringBuilder.AppendLine(GetDevProfitString(kvp.Key, kvp.Value));
-            }
-            return stringBuilder.ToString();
-        }
 
         /// <summary>
         /// SwichMostProfitable should check the best combination for most profit.
@@ -531,11 +519,17 @@ namespace NiceHashMiner.Miners {
             // TODO FOR NOW USD ONLY
             var currentProfitUSD = (CurrentProfit * Globals.BitcoinRate);
             Helpers.ConsolePrint(TAG,  "Current Global profit: " + currentProfitUSD.ToString("F8") + " USD/Day");
-            if (ConfigManager.Instance.GeneralConfig.MinimumProfit > 0
-                    && currentProfitUSD < ConfigManager.Instance.GeneralConfig.MinimumProfit) {
+            if (!IsConnectedToInternet || (ConfigManager.Instance.GeneralConfig.MinimumProfit > 0
+                    && currentProfitUSD < ConfigManager.Instance.GeneralConfig.MinimumProfit)) {
                 IsProfitable = false;
                 IsCurrentlyIdle = true;
-                _mainFormRatesComunication.ShowNotProfitable();
+                if (!IsConnectedToInternet) {
+                    // change msg
+                    Helpers.ConsolePrint(TAG, "NO INTERNET!!! Stopping mining.");
+                    _mainFormRatesComunication.ShowNotProfitable(International.GetText("Form_Main_MINING_NO_INTERNET_CONNECTION"));
+                } else {
+                    _mainFormRatesComunication.ShowNotProfitable(International.GetText("Form_Main_MINING_NOT_PROFITABLE"));
+                }
                 // return don't group
                 StopAllMinersNonProfitable();
                 Helpers.ConsolePrint(TAG, "Current Global profit: NOT PROFITABLE MinProfit " + ConfigManager.Instance.GeneralConfig.MinimumProfit.ToString("F8") + " USD/Day");
@@ -573,10 +567,13 @@ namespace NiceHashMiner.Miners {
                 newGroup.Add(firstDev.UUID);
                 for (int second = first + 1; second < _enabledDevices.Count; ++second) {
                     var secondDev = _enabledDevices[second];
-                    // check if we should group
-                    if(IsDaggerAndSameComputePlatform(firstDev, secondDev)
-                        || IsGroupBinaryAndAlgorithmSame(firstDev, secondDev)) {
-                        newGroup.Add(secondDev.UUID);
+                    // first check if second device has profitable algorithm
+                    if (secondDev.MostProfitableAlgorithm != null) {
+                        // check if we should group
+                        if (IsDaggerAndSameComputePlatform(firstDev, secondDev)
+                            || IsGroupBinaryAndAlgorithmSame(firstDev, secondDev)) {
+                            newGroup.Add(secondDev.UUID);
+                        }
                     }
                 }
 

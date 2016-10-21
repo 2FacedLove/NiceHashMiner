@@ -14,7 +14,8 @@ using NiceHashMiner.Enums;
 using NiceHashMiner.Miners;
 using NiceHashMiner.Interfaces;
 
-using Timer = System.Windows.Forms.Timer;
+using Timer = System.Timers.Timer;
+using System.Timers;
 
 namespace NiceHashMiner
 {
@@ -94,9 +95,9 @@ namespace NiceHashMiner
                 _benchmarkAlgorithm = value;
             }
         }
-        public BenchmarkProcessStatus BenchmarkProcessStatus { get; private set; }
-        private string BenchmarkProcessPath;
-        private Process BenchmarkHandle = null;
+        public BenchmarkProcessStatus BenchmarkProcessStatus { get; protected set; }
+        protected string BenchmarkProcessPath { get; private set; }
+        protected Process BenchmarkHandle { get; private set; }
         protected Exception BenchmarkException = null;
         protected int BenchmarkTimeInSeconds;
 
@@ -116,8 +117,9 @@ namespace NiceHashMiner
         protected MinerAPIReadStatus _currentMinerReadStatus { get; set; }
         private int _currentCooldownTimeInSeconds = _MIN_CooldownTimeInMilliseconds;
         private int _currentCooldownTimeInSecondsLeft = _MIN_CooldownTimeInMilliseconds;
-        private int _isCooldownCheckTimerAliveCount = 0;
         private const int IS_COOLDOWN_CHECK_TIMER_ALIVE_CAP = 15;
+
+        private bool isEnded = false;
 
         public Miner(DeviceType deviceType, string minerDeviceName)
         {
@@ -141,11 +143,6 @@ namespace NiceHashMiner
             APIPort = MinersApiPortsManager.Instance.GetAvaliablePort();
             IsAPIReadException = false;
             _MAX_CooldownTimeInMilliseconds = GET_MAX_CooldownTimeInMilliseconds();
-            // cool down init
-            _cooldownCheckTimer = new Timer() {
-                Interval = _MIN_CooldownTimeInMilliseconds
-            };
-            _cooldownCheckTimer.Tick += MinerCoolingCheck_Tick;
             // 
             Helpers.ConsolePrint(MinerTAG(), "NEW MINER CREATED");
         }
@@ -162,10 +159,6 @@ namespace NiceHashMiner
             }
             // sort devices by id
             CDevs.Sort((a, b) =>  a.ID - b.ID);
-        }
-
-        public void ClearCDevs() {
-            CDevs.Clear();
         }
 
         // TAG for identifying miner
@@ -241,7 +234,7 @@ namespace NiceHashMiner
         abstract protected void _Stop(MinerStopType willswitch);
         virtual public void Stop(MinerStopType willswitch = MinerStopType.SWITCH, bool needsRestart = false)
         {
-            _cooldownCheckTimer.Stop();
+            if (_cooldownCheckTimer != null) _cooldownCheckTimer.Stop();
             if (!needsRestart) {
                 _Stop(willswitch);
                 PreviousTotalMH = 0.0;
@@ -254,6 +247,7 @@ namespace NiceHashMiner
         }
 
         public void End() {
+            isEnded = true;
             Stop(MinerStopType.FORCE_END);
             CurrentAlgorithmType = AlgorithmType.NONE;
             CurrentRate = 0;
@@ -315,13 +309,15 @@ namespace NiceHashMiner
             return timeInSeconds + 120; // wait time plus two minutes
         }
 
-        abstract protected string BenchmarkCreateCommandLine(ComputeDevice benchmarkDevice, Algorithm algorithm, int time);
+        abstract protected string BenchmarkCreateCommandLine(Algorithm algorithm, int time);
 
         // The benchmark config and algorithm must guarantee that they are compatible with miner
         // we guarantee algorithm is supported
         // we will not have empty benchmark configs, all benchmark configs will have device list
         virtual public void BenchmarkStart(ComputeDevice benchmarkDevice, Algorithm algorithm, int time, IBenchmarkComunicator benchmarkComunicator) {
-            
+            // for extra launch parameters parsing purposes
+            benchmarkDevice.MostProfitableAlgorithm = algorithm;
+
             BenchmarkComunicator = benchmarkComunicator;
             BenchmarkAlgorithm = algorithm;
             BenchmarkTimeInSeconds = time;
@@ -331,13 +327,14 @@ namespace NiceHashMiner
             OnBenchmarkCompleteCalled = false;
             BenchmarkTimeOutStopWatch = null;
 
-            string CommandLine = BenchmarkCreateCommandLine(benchmarkDevice, algorithm, time);
+            string CommandLine = BenchmarkCreateCommandLine(algorithm, time);
 
             Thread BenchmarkThread = new Thread(BenchmarkThreadRoutine);
             BenchmarkThread.Start(CommandLine);
         }
 
         virtual protected Process BenchmarkStartProcess(string CommandLine) {
+            Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             Helpers.ConsolePrint(MinerTAG(), "Starting benchmark: " + CommandLine);
 
             Process BenchmarkHandle = new Process();
@@ -365,16 +362,6 @@ namespace NiceHashMiner
             if (!BenchmarkHandle.Start()) return null;
 
             return BenchmarkHandle;
-        }
-
-
-        private string ElapsedTimeString(long timeMillies) {
-            if (timeMillies < 1000) {
-                return timeMillies.ToString() + " milliseconds";
-            } else if (timeMillies < 60 * 1000) {
-                return (timeMillies / 1000).ToString() + " seconds";
-            }
-            return (timeMillies / (60 * 1000)).ToString() + " minutes";
         }
 
         private void BenchmarkOutputErrorDataReceived(object sender, DataReceivedEventArgs e) {
@@ -426,32 +413,32 @@ namespace NiceHashMiner
             }
         }
 
-        //protected double BenchmarkParseLine_cpu_ccminer_extra(string outdata) {
-        //    // parse line
-        //    if (outdata.Contains("Benchmark: ") && outdata.Contains("/s")) {
-        //        int i = outdata.IndexOf("Benchmark:");
-        //        int k = outdata.IndexOf("/s");
-        //        string hashspeed = outdata.Substring(i + 11, k - i - 9);
-        //        Helpers.ConsolePrint("BENCHMARK", "Final Speed: " + hashspeed);
+        protected double BenchmarkParseLine_cpu_ccminer_extra(string outdata) {
+            // parse line
+            if (outdata.Contains("Benchmark: ") && outdata.Contains("/s")) {
+                int i = outdata.IndexOf("Benchmark:");
+                int k = outdata.IndexOf("/s");
+                string hashspeed = outdata.Substring(i + 11, k - i - 9);
+                Helpers.ConsolePrint("BENCHMARK", "Final Speed: " + hashspeed);
 
-        //        // save speed
-        //        int b = hashspeed.IndexOf(" ");
-        //        double spd = Double.Parse(hashspeed.Substring(0, b), CultureInfo.InvariantCulture);
-        //        if (hashspeed.Contains("kH/s"))
-        //            spd *= 1000;
-        //        else if (hashspeed.Contains("MH/s"))
-        //            spd *= 1000000;
-        //        else if (hashspeed.Contains("GH/s"))
-        //            spd *= 1000000000;
+                // save speed
+                int b = hashspeed.IndexOf(" ");
+                double spd = Double.Parse(hashspeed.Substring(0, b), CultureInfo.InvariantCulture);
+                if (hashspeed.Contains("kH/s"))
+                    spd *= 1000;
+                else if (hashspeed.Contains("MH/s"))
+                    spd *= 1000000;
+                else if (hashspeed.Contains("GH/s"))
+                    spd *= 1000000000;
 
-        //        return spd;
-        //    }
-        //    return 0.0d;
-        //}
+                return spd;
+            }
+            return 0.0d;
+        }
 
         // killing proccesses can take time
-        public void EndBenchmarkProcces() {
-            if (BenchmarkHandle != null && BenchmarkProcessStatus != BenchmarkProcessStatus.Killing) {
+        virtual public void EndBenchmarkProcces() {
+            if (BenchmarkHandle != null && BenchmarkProcessStatus != BenchmarkProcessStatus.Killing && BenchmarkProcessStatus != BenchmarkProcessStatus.DoneKilling) {
                 BenchmarkProcessStatus = BenchmarkProcessStatus.Killing;
                 try {
                     Helpers.ConsolePrint("BENCHMARK", String.Format("Trying to kill benchmark process {0} algorithm {1}", BenchmarkProcessPath, BenchmarkAlgorithm.NiceHashName));
@@ -561,6 +548,7 @@ namespace NiceHashMiner
                     Helpers.ConsolePrint(MinerTAG(), "Starting miner " + ProcessTag() + " " + LastCommandLine);
 
                     StartCoolDownTimerChecker();
+                    isEnded = false;
 
                     return P;
                 } else {
@@ -577,11 +565,16 @@ namespace NiceHashMiner
 
         protected void StartCoolDownTimerChecker() {
             Helpers.ConsolePrint(MinerTAG(), ProcessTag() + " Starting cooldown checker");
+            if (_cooldownCheckTimer != null && _cooldownCheckTimer.Enabled) _cooldownCheckTimer.Stop();
+            // cool down init
+            _cooldownCheckTimer = new Timer() {
+                Interval = _MIN_CooldownTimeInMilliseconds
+            };
+            _cooldownCheckTimer.Elapsed += MinerCoolingCheck_Tick;
             _cooldownCheckTimer.Start();
             _currentCooldownTimeInSeconds = _MIN_CooldownTimeInMilliseconds;
             _currentCooldownTimeInSecondsLeft = _currentCooldownTimeInSeconds;
             _currentMinerReadStatus = MinerAPIReadStatus.NONE;
-            _isCooldownCheckTimerAliveCount = 0;
         } 
 
 
@@ -611,10 +604,12 @@ namespace NiceHashMiner
         }
 
         private void Restart() {
-            Helpers.ConsolePrint(MinerTAG(), ProcessTag() + " Restarting miner..");
-            Stop(MinerStopType.END); // stop miner first
-            System.Threading.Thread.Sleep(ConfigManager.Instance.GeneralConfig.MinerRestartDelayMS);
-            ProcessHandle = _Start(); // start with old command line
+            if (!isEnded) {
+                Helpers.ConsolePrint(MinerTAG(), ProcessTag() + " Restarting miner..");
+                Stop(MinerStopType.END); // stop miner first
+                System.Threading.Thread.Sleep(ConfigManager.Instance.GeneralConfig.MinerRestartDelayMS);
+                ProcessHandle = _Start(); // start with old command line
+            }
         }
 
         protected void FillAlgorithm(string aname, ref APIData AD) {
@@ -667,8 +662,6 @@ namespace NiceHashMiner
             catch (Exception ex)
             {
                 return null;
-            } catch { // all
-                return null;
             }
 
             return ResponseFromServer;
@@ -718,18 +711,13 @@ namespace NiceHashMiner
         /// decrement time for half current half time, if less then min ammend
         /// </summary>
         private void CoolDown() {
-            _currentCooldownTimeInSeconds /= 2;
-            if (_currentCooldownTimeInSeconds < _MIN_CooldownTimeInMilliseconds) {
+            if (_currentCooldownTimeInSeconds > _MIN_CooldownTimeInMilliseconds) {
                 _currentCooldownTimeInSeconds = _MIN_CooldownTimeInMilliseconds;
-                if (_isCooldownCheckTimerAliveCount == 0) {
-                    _isCooldownCheckTimerAliveCount = IS_COOLDOWN_CHECK_TIMER_ALIVE_CAP;
-                    Helpers.ConsolePrint(MinerTAG(), String.Format("{0} Cooling DOWN, cool time is {1} ms", ProcessTag(), _currentCooldownTimeInSeconds.ToString()));
-                }
-                --_isCooldownCheckTimerAliveCount;
-            } else {
-                Helpers.ConsolePrint(MinerTAG(), String.Format("{0} Cooling DOWN, cool time is {1} ms", ProcessTag(), _currentCooldownTimeInSeconds.ToString()));
+                Helpers.ConsolePrint(MinerTAG(), String.Format("{0} Reseting cool time = {1} ms", ProcessTag(), _MIN_CooldownTimeInMilliseconds.ToString()));
+                _currentMinerReadStatus = MinerAPIReadStatus.NONE;
             }
         }
+
         /// <summary>
         /// increment time for half current half time, if more then max set restart
         /// </summary>
@@ -743,8 +731,8 @@ namespace NiceHashMiner
             }
         }
 
-        private void MinerCoolingCheck_Tick(object sender, EventArgs e) {
-            _currentCooldownTimeInSecondsLeft -= _cooldownCheckTimer.Interval;
+        private void MinerCoolingCheck_Tick(object sender, ElapsedEventArgs e) {
+            _currentCooldownTimeInSecondsLeft -= (int)_cooldownCheckTimer.Interval;
             // if times up
             if (_currentCooldownTimeInSecondsLeft <= 0) {
                 if (_currentMinerReadStatus == MinerAPIReadStatus.GOT_READ) {
